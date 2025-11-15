@@ -1,1 +1,3 @@
-console.log('hello world');
+import logger from './logger.ts';
+
+logger.info('hello world');

@@ -1,16 +1,13 @@
 import pino from 'pino';
 import pretty from 'pino-pretty';
 
+import config from './config.ts';
+
 const stream = pretty({
   colorize: true,
-  sync: process.env.NODE_ENV?.toLocaleLowerCase() === 'test',
+  sync: config.NODE_ENV === 'development',
 });
 
-const logger = pino(
-  {
-    level: process.env.LOG_LEVEL || 'info',
-  },
-  stream
-);
+const logger = pino({ level: config.LOG_LEVEL }, stream);
 
 export default logger;

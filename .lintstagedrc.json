@@ -1,6 +1,6 @@
 {
   "*.ts": "tsc --noEmit",
-  "*.{js,ts}": "eslint --cache --fix",
-  "!(*package).{js,ts,json,md}": ["prettier --write --ignore-unknown"],
+  "*.{mjs,js,ts}": "xo --cache --fix",
+  "!(*package).{mjs,js,ts,json,md}": ["prettier --write --ignore-unknown"],
   "package.json": "format-package --write"
 }
