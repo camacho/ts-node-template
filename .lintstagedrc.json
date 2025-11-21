@@ -1,6 +1,6 @@
 {
-  "*.ts": "tsc --noEmit",
-  "*.{mjs,js,ts}": "xo --cache --fix",
-  "!(*package).{mjs,js,ts,json,md}": ["prettier --write --ignore-unknown"],
+  "*.ts": "bash -c 'pnpm run type-check'",
+  "*.{mjs,js,mts,ts}": "eslint --cache --quiet --fix",
+  "!(*package).{mjs,js,mts,ts,json,md}": ["prettier --write --ignore-unknown"],
   "package.json": "format-package --write"
 }

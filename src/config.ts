@@ -1,69 +1,31 @@
-import type pino from 'pino';
 import { config as dotenvConfig } from 'dotenv-flow';
-
-dotenvConfig();
-
-type Config = {
-  NODE_ENV: 'development' | 'test' | 'production';
-  LOG_LEVEL: pino.LevelWithSilentOrString;
-};
-
-type Transformations = Partial<{
-  [K in keyof Config]: Transform<Config[K] | undefined>;
-}>;
-
-type Transform<T extends Config[keyof Config] | undefined> = (
-  value: string | undefined,
-) => T;
+import { cleanEnv, str } from 'envalid';
 
 /* eslint-disable @typescript-eslint/naming-convention */
 const defaults = {
   NODE_ENV: 'development',
   LOG_LEVEL: 'info',
 };
-/* eslint-enable @typescript-eslint/naming-convention */
 
-/* eslint-disable @typescript-eslint/naming-convention */
-const transformations: Transformations = {
-  NODE_ENV: (value) => {
-    if (!value) return undefined;
+const { parsed: parsedEnv, error: dotenvError } = dotenvConfig({
+  node_env: process.env['NODE_ENV'] ?? defaults.NODE_ENV,
+});
 
-    const str = value?.toLowerCase();
-
-    const env =
-      {
-        dev: 'development',
-        prod: 'production',
-      }[str] ?? str;
-
-    if (env !== 'development' && env !== 'test' && env !== 'production') {
-      return undefined;
-    }
-
-    return env;
-  },
-};
-/* eslint-enable @typescript-eslint/naming-convention */
-
-const config = {
-  ...defaults,
-  ...Object.fromEntries(
-    Object.entries(process.env).map(([key, value]) => {
-      if (!value || !(key in transformations)) {
-        return [key, value];
-      }
-
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      const transformer = transformations[key as keyof Config];
-      return [key, transformer ? transformer(value) : value];
-    }),
-  ),
-};
-
-const validate = <T extends Config>(env: unknown): env is T => true;
-
-if (!validate<Config>(config)) {
-  throw new Error('Invalid environment configuration');
+if (dotenvError ?? !parsedEnv) {
+  throw dotenvError ?? new Error('Failed to load environment variables');
 }
 
-export default config satisfies Config;
+const config = cleanEnv(
+  { ...defaults, ...parsedEnv },
+  {
+    NODE_ENV: str({
+      choices: ['development', 'test', 'production'],
+    }),
+    LOG_LEVEL: str({
+      choices: ['fatal', 'error', 'warn', 'info', 'debug', 'trace'],
+    }),
+  },
+);
+/* eslint-enable @typescript-eslint/naming-convention */
+
+export default config;

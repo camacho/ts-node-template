@@ -1,3 +1,5 @@
 import logger from './logger.ts';
 
-logger.info('hello world');
+logger.info('this is an info message');
+logger.debug('this is a debug message');
+logger.error('this is an error message');

@@ -1,9 +1,9 @@
-import pino from 'pino';
-import pretty from 'pino-pretty';
+import { pino } from 'pino';
+import { build } from 'pino-pretty';
 
 import config from './config.ts';
 
-const stream = pretty({
+const stream = build({
   colorize: true,
   sync: config.NODE_ENV === 'development',
 });
