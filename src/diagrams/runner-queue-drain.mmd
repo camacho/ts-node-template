@@ -1,0 +1,78 @@
+%% Runner queue + drain diagram (Mermaid)
+%% File: src/diagrams/runner-queue-drain.mmd
+
+flowchart LR
+  Client[Client]
+  Enq["enqueue task"]
+  Runner[Runner]
+  Tasks["tasks: Set of Task"]
+  subgraph TASKS[Enqueued Tasks]
+    T1[Task1]
+    T2[Task2]
+    T3[Task3]
+    T4[Task4]
+    T5[Task5]
+  end
+
+  Client --> Enq
+  Enq --> Runner
+  Runner --> Tasks
+  Tasks --> T1
+  Tasks --> T2
+  Tasks --> T3
+  Tasks --> T4
+  Tasks --> T5
+
+%% -----------------------------
+%% Sequence: enqueue 5 tasks, call run, sequential drain
+%% -----------------------------
+sequenceDiagram
+  autonumber
+  participant Client
+  participant Runner
+  participant Scheduler
+  participant Task1
+  participant Task2
+  participant Task3
+  participant Task4
+  participant Task5
+  participant Callback
+
+  Note over Client,Runner: Phase 1 - enqueue 5 tasks
+  Client->>Runner: enqueue(Task1)
+  Client->>Runner: enqueue(Task2)
+  Client->>Runner: enqueue(Task3)
+  Client->>Runner: enqueue(Task4)
+  Client->>Runner: enqueue(Task5)
+
+  Note over Client,Runner: Phase 2 — start run (sequential)
+  Client->>Runner: run(finalCallback)
+  Runner->>Runner: invoke next(finalCallback)
+
+  %% Loop: Runner picks first idle task and schedules it
+  loop for each idle task
+    Runner->>Runner: select first idle task
+    Runner->>Scheduler: schedule invoke task.run
+    Scheduler-->>Task1: invoke scheduled callback
+    activate Task1
+    Task1->>Task1: set status running
+    Task1->>Task1: execute fn
+    alt fn synchronous
+      Task1-->>Runner: call next (no error)
+    else fn asynchronous
+      Note right of Task1: fn will call next later
+      Task1-->>Runner: call next (later)
+    end
+    Task1->>Runner: Runner receives task completion
+    deactivate Task1
+  end
+
+  Note over Runner,Callback: When no idle task remains Runner invokes finalCallback
+  Runner->>Callback: finalCallback()
+
+%% -----------------------------
+%% Notes
+%% - `enqueue` creates Task instances and adds them to Runner.tasks
+%% - `run` calls the returned function from `next` to begin sequential processing
+%% - `next` picks the first idle task, schedules it, and recurses after completion
+%% - finalCallback is invoked when there are no more idle tasks

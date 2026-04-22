@@ -1,0 +1,21 @@
+flowchart LR
+  Client[Client]
+  Enq["enqueue task"]
+  Runner[Runner]
+  Tasks["tasks: Set of Task"]
+  subgraph TASKS[Enqueued Tasks]
+    T1[Task1]
+    T2[Task2]
+    T3[Task3]
+    T4[Task4]
+    T5[Task5]
+  end
+
+  Client --> Enq
+  Enq --> Runner
+  Runner --> Tasks
+  Tasks --> T1
+  Tasks --> T2
+  Tasks --> T3
+  Tasks --> T4
+  Tasks --> T5
