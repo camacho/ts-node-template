@@ -1,219 +1,141 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  Task,
-  type TaskCallback,
-  type TaskFn,
-  type TaskInterface,
-} from '../src/Task.ts';
+import { Task } from '../src/Task.ts';
+import type {
+  TaskCallback,
+  TaskFn,
+  TaskInterface,
+  TaskScheduling,
+  TaskConstructor,
+} from '../src/contracts.ts';
 
-type Scheduling = ConstructorParameters<typeof Task>[2];
-type TaskConstructor<TTask extends TaskInterface = TaskInterface> = new (
-  ...args: ConstructorParameters<typeof Task>
-) => TTask;
-type TaskImplementation<TTask extends TaskInterface = TaskInterface> = {
-  name: string;
-  Task: TaskConstructor<TTask>;
-};
-
-const implementations = [
-  {
-    name: 'current implementation',
-    Task,
-  },
-] satisfies TaskImplementation[];
+const implementations = [{ name: 'current implementation', Task }];
 
 const run = async (task: TaskInterface) =>
   new Promise<unknown>((resolve) => {
     task.run(resolve);
   });
 
-const deferred = (callback: TaskCallback) => {
-  setTimeout(callback, 0);
-};
-
-export const defineTaskContractSpecs = <TTask extends TaskInterface>({
-  name,
-  Task: TaskImplementation,
-}: TaskImplementation<TTask>) => {
-  const createTask = (
-    fn: TaskFn,
-    taskName = 'contract task',
-    scheduling?: Scheduling,
-  ) => new TaskImplementation(fn, taskName, scheduling);
-
-  describe(name, () => {
-    it('exposes stable identity and starts idle', () => {
-      const task = createTask(() => undefined, 'named task');
-
-      expect(task.id).toBeTypeOf('string');
-      expect(task.id).not.toHaveLength(0);
-      expect(task.name).toBe('named task');
-      expect(task.status).toBe('idle');
-      expect(task.error).toBeUndefined();
-    });
-
-    it('completes a synchronous task that does not use the callback', async () => {
-      const trace: string[] = [];
-      const task = createTask(() => {
-        trace.push('ran task');
-      });
-
-      await expect(run(task)).resolves.toBeUndefined();
-      expect(trace).toStrictEqual(['ran task']);
-      expect(task.status).toBe('completed');
-      expect(task.error).toBeUndefined();
-    });
-
-    it('completes a synchronous callback task', async () => {
-      const trace: string[] = [];
-      const task = createTask((next) => {
-        trace.push('before callback');
-        next();
-        trace.push('after callback');
-      });
-
-      await expect(run(task)).resolves.toBeUndefined();
-      expect(trace).toStrictEqual(['before callback', 'after callback']);
-      expect(task.status).toBe('completed');
-    });
-
-    it('completes an asynchronous callback task', async () => {
-      const trace: string[] = [];
-      const task = createTask((next) => {
-        trace.push('started');
-        deferred(() => {
-          trace.push('finished');
-          next();
-        });
-      });
-
-      await expect(run(task)).resolves.toBeUndefined();
-      expect(trace).toStrictEqual(['started', 'finished']);
-      expect(task.status).toBe('completed');
-    });
-
-    it('fails when the task throws synchronously', async () => {
-      const error = new Error('expected thrown failure');
-      const task = createTask(() => {
-        throw error;
-      });
-
-      await expect(run(task)).resolves.toBe(error);
-      expect(task.status).toBe('failed');
-      expect(task.error).toBe(error);
-    });
-
-    it('fails when the callback receives an error', async () => {
-      const error = new Error('expected callback failure');
-      const task = createTask((next) => {
-        deferred(() => {
-          next(error);
-        });
-      });
-
-      await expect(run(task)).resolves.toBe(error);
-      expect(task.status).toBe('failed');
-      expect(task.error).toBe(error);
-    });
-
-    it('settles only once when a task calls back more than once', async () => {
-      const errors: unknown[] = [];
-      const task = createTask((next) => {
-        next();
-        next(new Error('second callback should be ignored'));
-      });
-
-      task.run((error) => {
-        errors.push(error);
-      });
-
-      await new Promise((resolve) => {
-        deferred(resolve);
-      });
-
-      expect(errors).toStrictEqual([undefined]);
-      expect(task.status).toBe('completed');
-      expect(task.error).toBeUndefined();
-    });
-
-    it('keeps a callback task running until the callback is called', async () => {
-      const errors: unknown[] = [];
-      const task = createTask((next) => {
-        void next;
-      });
-
-      task.run((error) => {
-        errors.push(error);
-      });
-
-      await new Promise((resolve) => {
-        setTimeout(resolve, 5);
-      });
-
-      expect(errors).toStrictEqual([]);
-      expect(task.status).toBe('running');
-      expect(task.error).toBeUndefined();
-    });
-
-    it.each([
-      ['sync', 'sync'],
-      ['nextTick', 'nextTick'],
-      ['setTimeout', 'setTimeout'],
-      ['setImmediate', 'setImmediate'],
-    ] satisfies Array<[string, Scheduling]>)(
-      'runs tasks scheduled with %s',
-      async (_label, scheduling) => {
-        const trace: string[] = [];
-        const task = createTask(
-          () => {
-            trace.push('ran task');
-          },
-          `${scheduling} task`,
-          scheduling,
-        );
-
-        await expect(run(task)).resolves.toBeUndefined();
-        expect(trace).toStrictEqual(['ran task']);
-        expect(task.status).toBe('completed');
-      },
-    );
-
-    it('reports a status error when a completed task is run again', async () => {
-      const task = createTask(() => undefined);
-
-      await expect(run(task)).resolves.toBeUndefined();
-      await expect(run(task)).resolves.toBeInstanceOf(Error);
-      expect(task.status).toBe('completed');
-    });
-
-    it('fails a running task when it is run again', async () => {
-      let finish: TaskCallback | undefined;
-      const errors: unknown[] = [];
-      const task = createTask((next) => {
-        finish = next;
-      });
-
-      task.run((error) => {
-        errors.push(error);
-      });
-      task.run((error) => {
-        errors.push(error);
-      });
-      finish?.();
-
-      await new Promise((resolve) => {
-        deferred(resolve);
-      });
-
-      expect(errors).toHaveLength(2);
-      expect(errors[0]).toBeInstanceOf(Error);
-      expect(errors[1]).toBeInstanceOf(Error);
-      expect(task.status).toBe('failed');
-    });
+const wait = async () =>
+  new Promise((resolve) => {
+    setTimeout(resolve, 0);
   });
-};
 
-for (const implementation of implementations) {
-  defineTaskContractSpecs(implementation);
-}
+describe.each(implementations)('$name Task contract', ({ Task }) => {
+  const task = (fn: TaskFn, name = 'task', scheduling?: TaskScheduling) =>
+    new (Task as TaskConstructor)(fn, name, scheduling);
+
+  it('starts idle with identity', () => {
+    const subject = task(() => undefined, 'named task');
+
+    expect(subject.id).toBeTypeOf('string');
+    expect(subject.name).toBe('named task');
+    expect(subject.status).toBe('idle');
+    expect(subject.error).toBeUndefined();
+  });
+
+  it('completes sync, callback, and async tasks', async () => {
+    const trace: string[] = [];
+
+    await expect(run(task(() => trace.push('sync')))).resolves.toBeUndefined();
+    await expect(
+      run(
+        task((next) => {
+          trace.push('callback');
+          next();
+        }),
+      ),
+    ).resolves.toBeUndefined();
+    await expect(
+      run(
+        task((next) => {
+          setTimeout(() => {
+            trace.push('async');
+            next();
+          }, 0);
+        }),
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(trace).toStrictEqual(['sync', 'callback', 'async']);
+  });
+
+  it('fails on thrown or callback errors', async () => {
+    const thrown = new Error('thrown');
+    const callback = new Error('callback');
+    const thrownTask = task(() => {
+      throw thrown;
+    });
+    const callbackTask = task((next) => { next(callback); });
+
+    await expect(run(thrownTask)).resolves.toBe(thrown);
+    await expect(run(callbackTask)).resolves.toBe(callback);
+    expect(thrownTask.status).toBe('failed');
+    expect(thrownTask.error).toBe(thrown);
+    expect(callbackTask.status).toBe('failed');
+    expect(callbackTask.error).toBe(callback);
+  });
+
+  it('runs every scheduling mode', async () => {
+    const trace: string[] = [];
+
+    for (const scheduling of [
+      'sync',
+      'nextTick',
+      'setTimeout',
+      'setImmediate',
+    ] satisfies TaskScheduling[]) {
+      await expect(
+        run(task(() => trace.push(scheduling), scheduling, scheduling)),
+      ).resolves.toBeUndefined();
+    }
+
+    expect(trace).toStrictEqual([
+      'sync',
+      'nextTick',
+      'setTimeout',
+      'setImmediate',
+    ]);
+  });
+
+  it('settles only once and waits for callback tasks', async () => {
+    const settled: unknown[] = [];
+    const doubleCallback = task((next) => {
+      next();
+      next(new Error('ignored'));
+    });
+    const neverFinishes = task((next) => {
+      void next;
+    });
+
+    doubleCallback.run((error) => settled.push(error));
+    neverFinishes.run((error) => settled.push(error));
+    await wait();
+
+    expect(settled).toStrictEqual([undefined]);
+    expect(doubleCallback.status).toBe('completed');
+    expect(neverFinishes.status).toBe('running');
+  });
+
+  it('reports status errors when rerun', async () => {
+    let finish: TaskCallback | undefined;
+    const completed = task(() => undefined);
+    const running = task((next) => {
+      finish = next;
+    });
+    const runningErrors: unknown[] = [];
+
+    await expect(run(completed)).resolves.toBeUndefined();
+    await expect(run(completed)).resolves.toBeInstanceOf(Error);
+
+    running.run((error) => runningErrors.push(error));
+    running.run((error) => runningErrors.push(error));
+    finish?.();
+    await wait();
+
+    expect(runningErrors).toHaveLength(2);
+    expect(runningErrors[0]).toBeInstanceOf(Error);
+    expect(runningErrors[1]).toBeInstanceOf(Error);
+    expect(running.status).toBe('failed');
+  });
+});

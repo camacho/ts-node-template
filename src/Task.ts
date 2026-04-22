@@ -1,28 +1,23 @@
 import { once } from 'es-toolkit';
 
-export type TaskCallback = (error?: unknown) => void;
-export type TaskFn = (next: TaskCallback) => void;
+import {
+  taskSchedulings,
+  taskStatuses,
+  type TaskCallback,
+  type TaskFn,
+  type TaskInterface,
+  type TaskScheduling,
+  type TaskStatus,
+} from './contracts.ts';
 
-// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
-export interface TaskInterface {
-  readonly id: string;
-  readonly name: string;
-  readonly status: (typeof Task.STATUS)[number];
-  readonly error?: unknown;
-  run(callback?: TaskCallback): void;
-}
+export type { TaskCallback, TaskFn, TaskInterface } from './contracts.ts';
 
 export class Task implements TaskInterface {
   // eslint-disable-next-line @typescript-eslint/naming-convention
-  static STATUS = ['idle', 'running', 'completed', 'failed'] as const;
+  static STATUS = taskStatuses;
 
   // eslint-disable-next-line @typescript-eslint/naming-convention
-  static readonly SCHEDULING = [
-    'sync',
-    'nextTick',
-    'setTimeout',
-    'setImmediate',
-  ] as const;
+  static readonly SCHEDULING = taskSchedulings;
 
   protected static generateId() {
     return Math.random().toString(36).slice(2, 10);
@@ -49,18 +44,14 @@ export class Task implements TaskInterface {
 
   public readonly id: string;
   public readonly name: string;
-  public status: (typeof Task.STATUS)[number];
+  public status: TaskStatus;
   public error?: unknown;
 
-  protected readonly scheduling: (typeof Task.SCHEDULING)[number];
+  protected readonly scheduling: TaskScheduling;
 
   private readonly fn: TaskFn;
 
-  constructor(
-    fn: TaskFn,
-    name: string,
-    scheduling: (typeof Task.SCHEDULING)[number] = 'sync',
-  ) {
+  constructor(fn: TaskFn, name: string, scheduling: TaskScheduling = 'sync') {
     this.id = Task.generateId();
     this.name = name;
     this.status = 'idle';

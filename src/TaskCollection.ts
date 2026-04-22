@@ -1,7 +1,7 @@
 import { once } from 'es-toolkit';
 
 import { Task } from './Task.ts';
-import type { TaskCallback, TaskFn } from './Task.ts';
+import type { TaskCallback, TaskFn, TaskScheduling } from './contracts.ts';
 
 export class TaskCollection extends Task {
   protected readonly tasks: Set<Task>;
@@ -15,15 +15,11 @@ export class TaskCollection extends Task {
   }
 
   public add(task: Task, name?: undefined, scheduling?: undefined): void;
-  public add(
-    fn: TaskFn,
-    name?: string,
-    scheduling?: (typeof Task.SCHEDULING)[number],
-  ): void;
+  public add(fn: TaskFn, name?: string, scheduling?: TaskScheduling): void;
   public add(
     task: Task | TaskFn,
     name = `${this.name} - ${this.tasks.size + 1}`,
-    scheduling: (typeof Task.SCHEDULING)[number] = 'sync',
+    scheduling: TaskScheduling = 'sync',
   ) {
     this.tasks.add(
       task instanceof Task ? task : new Task(task, name, scheduling),
@@ -45,19 +41,23 @@ export class ParallelTasks extends TaskCollection {
     const done = callback ? once(callback) : undefined;
     const errors = new Map<string, unknown>();
 
-    const after = (id: string, error: unknown) => {
-      if (error) {
-        errors.set(id, error);
-      }
+    const next =
+      (id: string): TaskCallback =>
+      (error: unknown) => {
+        if (error) {
+          errors.set(id, error);
+        }
 
-      if (
-        this.tasks
-          .values()
-          .every(({ status }) => status === 'failed' || status === 'completed')
-      ) {
-        done?.(errors.size ? errors : undefined);
-      }
-    };
+        if (
+          this.tasks
+            .values()
+            .every(
+              ({ status }) => status === 'failed' || status === 'completed',
+            )
+        ) {
+          done?.(errors.size ? errors : undefined);
+        }
+      };
 
     if (
       ![...this.tasks.values().filter(({ status }) => status === 'idle')].length
@@ -69,7 +69,7 @@ export class ParallelTasks extends TaskCollection {
     for (const task of this.tasks
       .values()
       .filter(({ status }) => status === 'idle')) {
-      task.run(after.bind(this, task.id));
+      task.run(next(task.id));
     }
   }
 }

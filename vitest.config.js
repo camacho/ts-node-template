@@ -2,6 +2,10 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    // ... Specify options here.
+    coverage: {
+      include: ['src/Task.ts', 'src/TaskCollection.ts'],
+      provider: 'v8',
+      reporter: ['text'],
+    },
   },
 });
