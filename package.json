@@ -14,25 +14,26 @@
     "prepare": "husky",
     "raze": "rimraf ./dist ./coverage ./node_modules && pnpm install && pnpm run prepare && pnpm run lint && pnpm run format && pnpm run type-check && pnpm run dev && pnpm start",
     "start": "NODE_ENV=production tsx src/index.ts",
-    "test": "echo \"no tests\"",
+    "test": "NODE_ENV=test vitest",
     "type-check": "tsc --noEmit",
     "watch": "NODE_ENV=development nodemon -e js,mjs,ts,mts,json src/index.ts"
   },
   "dependencies": {
+    "consola": "^3.4.2",
     "dotenv-flow": "^4.1.0",
     "envalid": "^8.1.0",
+    "es-toolkit": "^1.42.0",
     "pino": "^8.21.0",
     "pino-pretty": "^10.3.1",
     "tsx": "^4.20.6"
   },
   "devDependencies": {
-    "@swc/core": "^1.15.2",
-    "@swc/helpers": "^0.5.17",
-    "regenerator-runtime": "^0.14.1",
-    "typescript": "^5.9.3",
     "@commitlint/config-conventional": "^19.6.0",
     "@eslint/js": "^9.37.0",
-    "@types/node": "^22.10.1",
+    "@mermaid-js/mermaid-cli": "^11.12.0",
+    "@swc/core": "^1.15.2",
+    "@swc/helpers": "^0.5.17",
+    "@types/node": "^24.10.1",
     "commitlint": "^19.6.0",
     "eslint": "^9.37.0",
     "eslint-config-prettier": "^10.1.8",
@@ -44,10 +45,14 @@
     "lint-staged": "^15.2.10",
     "nodemon": "^3.1.11",
     "prettier": "^3.4.2",
+    "regenerator-runtime": "^0.14.1",
     "rimraf": "^6.0.1",
     "stylistic": "^0.2.4",
     "ts-node": "^10.9.2",
+    "type-fest": "^5.3.0",
+    "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.0",
-    "utility-types": "^3.11.0"
+    "utility-types": "^3.11.0",
+    "vitest": "^4.0.13"
   }
 }

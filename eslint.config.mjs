@@ -662,6 +662,7 @@ export default defineConfig(
   typescriptEslint.configs.recommended,
   json.configs.recommended,
   css.configs.recommended,
+  stylistic.configs.recommended,
   {
     plugins: {
       '@typescript-eslint': typescriptEslint.plugin,
@@ -711,6 +712,24 @@ export default defineConfig(
     rules: {
       '@typescript-eslint/no-unsafe-call': 'off',
       '@typescript-eslint/no-confusing-void-expression': 'off', // Conflicts with `expectError` assertion.
+    },
+  },
+  {
+    files: ['**/*.test.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-type-assertion': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/naming-convention': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-empty-function': 'off',
+      '@typescript-eslint/consistent-type-imports': 'off',
+    },
+  },
+  {
+    files: ['src/app/**/*.ts'],
+    rules: {
+      '@typescript-eslint/naming-convention': 'off',
     },
   },
   {
