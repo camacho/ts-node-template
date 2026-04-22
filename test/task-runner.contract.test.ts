@@ -175,10 +175,22 @@ const createScenario = <
       await expect(run(queue.value)).resolves.toBeUndefined();
     },
     expectFailure: async (queue: ScenarioItem<TTask>) => {
-      await expect(run(queue.value)).resolves.toBeTruthy();
+      const result = await run(queue.value);
+
+      expect(result).toBeTruthy();
+
+      return result;
     },
     expectError: async (queue: ScenarioItem<TTask>, error: Error) => {
       await expect(run(queue.value)).resolves.toBe(error);
+    },
+    expectParallelFailure: async (queue: ScenarioItem<TTask>, size: number) => {
+      const result = await run(queue.value);
+
+      expect(result).toBeInstanceOf(Map);
+      expect(result).toHaveProperty('size', size);
+
+      return result as Map<string, unknown>;
     },
     run: async (queue: ScenarioItem<TTask>) => run(queue.value),
     expectTrace: (expected: Trace) => {
@@ -187,7 +199,7 @@ const createScenario = <
   };
 };
 
-export const defineTaskCollectionBehaviorSpecs = <TTask extends TaskInterface>(
+export const defineTaskRunnerContractSpecs = <TTask extends TaskInterface>(
   implementation: TaskCollectionImplementation<TTask>,
 ) => {
   describe(implementation.name, () => {
@@ -364,7 +376,7 @@ export const defineTaskCollectionBehaviorSpecs = <TTask extends TaskInterface>(
         $.task.callback('after child should not run'),
       );
 
-      await $.expectFailure(queue);
+      await $.expectParallelFailure(queue, 1);
       $.expectTrace([
         'start:sequential parent with failing parallel child[1] > before child',
         'end:sequential parent with failing parallel child[1] > before child',
@@ -499,7 +511,7 @@ export const defineTaskCollectionBehaviorSpecs = <TTask extends TaskInterface>(
         ),
       );
 
-      await $.expectFailure(queue);
+      await $.expectParallelFailure(queue, 1);
       $.expectTrace([
         'start:parallel parent with failing sequential child[1] > left sequential child[1] > left failure',
         'start:parallel parent with failing sequential child[2] > right sequential child[1] > right slow first',
@@ -552,7 +564,7 @@ export const defineTaskCollectionBehaviorSpecs = <TTask extends TaskInterface>(
         $.parallel('right parallel child', $.task.async('right success', 5)),
       );
 
-      await $.expectFailure(queue);
+      await $.expectParallelFailure(queue, 1);
       $.expectTrace([
         'start:parallel parent with failing parallel child[1] > left parallel child[1] > left failure',
         'start:parallel parent with failing parallel child[1] > left parallel child[2] > left slow success',
@@ -574,10 +586,9 @@ export const defineTaskCollectionBehaviorSpecs = <TTask extends TaskInterface>(
         $.task.fails('second failure', secondError, 2),
       );
 
-      const result = await $.run(queue);
+      const result = await $.expectParallelFailure(queue, 2);
 
-      expect(result).toBeInstanceOf(Map);
-      expect(result).toHaveProperty('size', 2);
+      expect([...result.values()]).toStrictEqual([firstError, secondError]);
       $.expectTrace([
         'start:parallel with multiple failures[1] > first failure',
         'start:parallel with multiple failures[2] > success',
@@ -634,7 +645,7 @@ export const defineTaskCollectionBehaviorSpecs = <TTask extends TaskInterface>(
         $.task.async('parallel slow sibling', 10),
       );
 
-      await $.expectFailure(queue);
+      await $.expectParallelFailure(queue, 1);
       $.expectTrace([
         'start:depth three failure[1] > sequential child[1] > parallel grandchild[1] > grandchild failure',
         'start:depth three failure[1] > sequential child[1] > parallel grandchild[2] > grandchild slow success',
@@ -673,7 +684,7 @@ export const defineTaskCollectionBehaviorSpecs = <TTask extends TaskInterface>(
         $.task.async('slow success', 10),
       );
 
-      await $.expectFailure(queue);
+      await $.expectParallelFailure(queue, 1);
       $.expectTrace([
         'start:failing parallel[1] > failure',
         'start:failing parallel[2] > slow success',
@@ -769,5 +780,5 @@ export const defineTaskCollectionBehaviorSpecs = <TTask extends TaskInterface>(
 };
 
 for (const implementation of implementations) {
-  defineTaskCollectionBehaviorSpecs(implementation);
+  defineTaskRunnerContractSpecs(implementation);
 }

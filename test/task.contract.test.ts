@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
-import { Task, type TaskCallback, type TaskFn } from '../src/Task.ts';
+import {
+  Task,
+  type TaskCallback,
+  type TaskFn,
+  type TaskInterface,
+} from '../src/Task.ts';
 
 type Scheduling = ConstructorParameters<typeof Task>[2];
-type TaskConstructor<TTask extends Task = Task> = new (
+type TaskConstructor<TTask extends TaskInterface = TaskInterface> = new (
   ...args: ConstructorParameters<typeof Task>
 ) => TTask;
-type TaskImplementation<TTask extends Task = Task> = {
+type TaskImplementation<TTask extends TaskInterface = TaskInterface> = {
   name: string;
   Task: TaskConstructor<TTask>;
 };
@@ -18,7 +23,7 @@ const implementations = [
   },
 ] satisfies TaskImplementation[];
 
-const run = async (task: Task) =>
+const run = async (task: TaskInterface) =>
   new Promise<unknown>((resolve) => {
     task.run(resolve);
   });
@@ -27,7 +32,7 @@ const deferred = (callback: TaskCallback) => {
   setTimeout(callback, 0);
 };
 
-export const defineTaskContractSpecs = <TTask extends Task>({
+export const defineTaskContractSpecs = <TTask extends TaskInterface>({
   name,
   Task: TaskImplementation,
 }: TaskImplementation<TTask>) => {
