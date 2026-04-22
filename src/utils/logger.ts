@@ -10,15 +10,12 @@ const logLevels: Record<string, number> = {
   warn: LogLevels.warn,
 };
 
-const logger = (config = appConfig) => {
-  const appLogger = createConsola({
+const factory = (config = appConfig) =>
+  createConsola({
     level: logLevels[config.LOG_LEVEL] ?? LogLevels.info,
   });
 
-  return appLogger;
-};
+const appLogger = factory();
 
-const appLogger = logger();
-
-export { logger as factory };
+export { factory };
 export default appLogger;
