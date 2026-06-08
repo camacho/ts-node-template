@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import { describe, expect, it } from 'vitest';
 
 import { factory } from './config.ts';

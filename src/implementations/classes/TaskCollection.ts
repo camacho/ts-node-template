@@ -1,29 +1,23 @@
 import { once } from 'es-toolkit';
 
 import { Task } from './Task.ts';
-import type { TaskCallback, TaskFn, TaskScheduling } from './contracts.ts';
+import type { TaskCallback, TaskFn, TaskScheduling } from '../../types.ts';
 
 export class TaskCollection extends Task {
   protected readonly tasks: Set<Task>;
 
-  constructor(name: string, tasks?: Iterable<Task>) {
+  constructor(tasks?: Iterable<Task>) {
     super((next) => {
       this.drain(next);
-    }, name);
+    });
 
     this.tasks = new Set(tasks);
   }
 
-  public add(task: Task, name?: undefined, scheduling?: undefined): void;
-  public add(fn: TaskFn, name?: string, scheduling?: TaskScheduling): void;
-  public add(
-    task: Task | TaskFn,
-    name = `${this.name} - ${this.tasks.size + 1}`,
-    scheduling: TaskScheduling = 'sync',
-  ) {
-    this.tasks.add(
-      task instanceof Task ? task : new Task(task, name, scheduling),
-    );
+  public add(task: Task, scheduling?: undefined): void;
+  public add(fn: TaskFn, scheduling?: TaskScheduling): void;
+  public add(task: Task | TaskFn, scheduling: TaskScheduling = 'sync') {
+    this.tasks.add(task instanceof Task ? task : new Task(task, scheduling));
   }
 
   public get size() {
@@ -32,44 +26,51 @@ export class TaskCollection extends Task {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected drain(_callback?: TaskCallback) {
-    throw new Error('`drain` is not implemented');
+    throw new Error(`Drain must be run by a task collection type.`);
+  }
+
+  protected isDrainable() {
+    if (!this.tasks.size) {
+      return false;
+    }
+
+    if (this.tasks.values().some(({ status }) => status !== 'idle')) {
+      throw new Error(`TaskCollection has already started.`);
+    }
+
+    return true;
   }
 }
 
 export class ParallelTasks extends TaskCollection {
   protected override drain(callback?: TaskCallback) {
     const done = callback ? once(callback) : undefined;
-    const errors = new Map<string, unknown>();
 
-    const next =
-      (id: string): TaskCallback =>
-      (error: unknown) => {
-        if (error) {
-          errors.set(id, error);
-        }
-
-        if (
-          this.tasks
-            .values()
-            .every(
-              ({ status }) => status === 'failed' || status === 'completed',
-            )
-        ) {
-          done?.(errors.size ? errors : undefined);
-        }
-      };
-
-    if (
-      ![...this.tasks.values().filter(({ status }) => status === 'idle')].length
-    ) {
+    if (!this.isDrainable()) {
       done?.();
       return;
     }
 
+    const errors = new Set<unknown>();
+
+    const next = (error: unknown) => {
+      if (error) {
+        errors.add(error);
+      }
+
+      if (
+        this.tasks
+          .values()
+          .every(({ status }) => ['failed', 'completed'].includes(status))
+      ) {
+        done?.(errors.size ? errors : undefined);
+      }
+    };
+
     for (const task of this.tasks
       .values()
       .filter(({ status }) => status === 'idle')) {
-      task.run(next(task.id));
+      task.run(next);
     }
   }
 }
@@ -77,6 +78,11 @@ export class ParallelTasks extends TaskCollection {
 export class SequentialTasks extends TaskCollection {
   protected override drain(callback?: TaskCallback) {
     const done = callback ? once(callback) : undefined;
+
+    if (!this.isDrainable()) {
+      done?.();
+      return;
+    }
 
     const next: TaskCallback = (error) => {
       if (error) {

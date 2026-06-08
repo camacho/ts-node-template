@@ -1,17 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { Task } from '../src/Task.ts';
-import type {
-  TaskCallback,
-  TaskFn,
-  TaskInterface,
-  TaskScheduling,
-  TaskConstructor,
-} from '../src/contracts.ts';
+import { implementations } from './implementations.ts';
+import type { TaskFn, Task, TaskScheduling } from '../../../types.ts';
 
-const implementations = [{ name: 'current implementation', Task }];
-
-const run = async (task: TaskInterface) =>
+const run = async (task: Task) =>
   new Promise<unknown>((resolve) => {
     task.run(resolve);
   });
@@ -22,16 +14,12 @@ const wait = async () =>
   });
 
 describe.each(implementations)('$name Task contract', ({ Task }) => {
-  const task = (fn: TaskFn, name = 'task', scheduling?: TaskScheduling) =>
-    new (Task as TaskConstructor)(fn, name, scheduling);
+  const task = (fn: TaskFn, scheduling?: TaskScheduling) =>
+    new Task(fn, scheduling);
 
   it('starts idle with identity', () => {
-    const subject = task(() => undefined, 'named task');
-
-    expect(subject.id).toBeTypeOf('string');
-    expect(subject.name).toBe('named task');
+    const subject = task(() => undefined);
     expect(subject.status).toBe('idle');
-    expect(subject.error).toBeUndefined();
   });
 
   it('completes sync, callback, and async tasks', async () => {
@@ -66,14 +54,14 @@ describe.each(implementations)('$name Task contract', ({ Task }) => {
     const thrownTask = task(() => {
       throw thrown;
     });
-    const callbackTask = task((next) => { next(callback); });
+    const callbackTask = task((next) => {
+      next(callback);
+    });
 
     await expect(run(thrownTask)).resolves.toBe(thrown);
     await expect(run(callbackTask)).resolves.toBe(callback);
     expect(thrownTask.status).toBe('failed');
-    expect(thrownTask.error).toBe(thrown);
     expect(callbackTask.status).toBe('failed');
-    expect(callbackTask.error).toBe(callback);
   });
 
   it('runs every scheduling mode', async () => {
@@ -86,7 +74,7 @@ describe.each(implementations)('$name Task contract', ({ Task }) => {
       'setImmediate',
     ] satisfies TaskScheduling[]) {
       await expect(
-        run(task(() => trace.push(scheduling), scheduling, scheduling)),
+        run(task(() => trace.push(scheduling), scheduling)),
       ).resolves.toBeUndefined();
     }
 
@@ -117,25 +105,25 @@ describe.each(implementations)('$name Task contract', ({ Task }) => {
     expect(neverFinishes.status).toBe('running');
   });
 
-  it('reports status errors when rerun', async () => {
-    let finish: TaskCallback | undefined;
+  it('throws when rerun', async () => {
     const completed = task(() => undefined);
     const running = task((next) => {
-      finish = next;
+      void next;
     });
-    const runningErrors: unknown[] = [];
 
     await expect(run(completed)).resolves.toBeUndefined();
-    await expect(run(completed)).resolves.toBeInstanceOf(Error);
+    expect(() => {
+      completed.run();
+    }).toThrow(Error);
 
-    running.run((error) => runningErrors.push(error));
-    running.run((error) => runningErrors.push(error));
-    finish?.();
-    await wait();
-
-    expect(runningErrors).toHaveLength(2);
-    expect(runningErrors[0]).toBeInstanceOf(Error);
-    expect(runningErrors[1]).toBeInstanceOf(Error);
-    expect(running.status).toBe('failed');
+    running.run();
+    expect(() => {
+      running.run();
+    }).toThrow(Error);
+    expect(running.status).toBe('running');
   });
+
+  it.todo('fails a callback task when it exceeds a run timeout');
+
+  it.todo('lets a task-specific timeout override the default timeout');
 });

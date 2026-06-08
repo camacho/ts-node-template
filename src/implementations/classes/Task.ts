@@ -1,16 +1,14 @@
-import { once } from 'es-toolkit';
-
 import {
   taskSchedulings,
   taskStatuses,
   type TaskCallback,
   type TaskFn,
-  type TaskInterface,
+  type Task as TaskInterface,
   type TaskScheduling,
   type TaskStatus,
-} from './contracts.ts';
+} from '../../types.ts';
 
-export type { TaskCallback, TaskFn, TaskInterface } from './contracts.ts';
+import { normalizeTask } from '../../utils/normalize-task.ts';
 
 export class Task implements TaskInterface {
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -23,59 +21,27 @@ export class Task implements TaskInterface {
     return Math.random().toString(36).slice(2, 10);
   }
 
-  private static normalize(fn: TaskFn): TaskFn {
-    return (callback: TaskCallback) => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      const next = once(callback);
-
-      let error;
-
-      try {
-        fn(next);
-      } catch (err) {
-        error = err;
-      }
-
-      if (error ?? !fn.length) {
-        next(error);
-      }
-    };
-  }
-
-  public readonly id: string;
-  public readonly name: string;
   public status: TaskStatus;
-  public error?: unknown;
 
   protected readonly scheduling: TaskScheduling;
 
   private readonly fn: TaskFn;
 
-  constructor(fn: TaskFn, name: string, scheduling: TaskScheduling = 'sync') {
-    this.id = Task.generateId();
-    this.name = name;
+  constructor(fn: TaskFn, scheduling: TaskScheduling = 'sync') {
     this.status = 'idle';
     this.scheduling = scheduling;
-    this.fn = Task.normalize(fn);
+    this.fn = normalizeTask(fn);
   }
 
   public run(callback?: TaskCallback) {
-    const done = this.done(callback);
-
-    try {
-      this.enforceStatus('idle');
-    } catch (error) {
-      done(error);
-      return;
-    }
-
+    this.enforceStatus('idle');
     this.status = 'running';
-    this.schedule(done);
+    this.schedule(this.done(callback));
   }
 
   protected enforceStatus(
     status: string | string[],
-    errorMessage = `Cannot execute "${this.name}" because it is not in "${String(
+    errorMessage = `Cannot execute task because it is not in "${String(
       status,
     )}" status.`,
   ) {
@@ -91,7 +57,6 @@ export class Task implements TaskInterface {
   }
 
   private done(callback?: TaskCallback): TaskCallback {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
     return (error?) => {
       try {
         this.enforceStatus('running');
@@ -101,8 +66,6 @@ export class Task implements TaskInterface {
       }
 
       this.status = error ? 'failed' : 'completed';
-      this.error = error;
-
       callback?.(error);
     };
   }
