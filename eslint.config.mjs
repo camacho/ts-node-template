@@ -657,7 +657,7 @@ const rules = {
 };
 
 export default defineConfig(
-  globalIgnores(['dist/*']),
+  globalIgnores(['dist/*', 'node_modules/*', 'coverage/*']),
   eslint.configs.recommended,
   typescriptEslint.configs.recommended,
   json.configs.recommended,
@@ -678,26 +678,6 @@ export default defineConfig(
         },
       },
     },
-
-    // Disabled temporarily.
-    // settings: {
-    // 	'import/resolver': {
-    // 		node: {
-    // 			extensions: [
-    // 				'.js',
-    // 				'.jsx',
-    // 				'.ts',
-    // 				'.tsx'
-    // 			]
-    // 		}
-    // 	},
-    // 	'import/parsers': {
-    // 		[require.resolve('@typescript-eslint/parser')]: [
-    // 			'.ts',
-    // 			'.tsx'
-    // 		]
-    // 	}
-    // },
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     /** @type {any} */ rules,
   },
@@ -734,7 +714,6 @@ export default defineConfig(
   },
   {
     files: ['**/*.tsx'],
-
     /** @type {any} */ rules: {
       ...getNamingConventionRule({ isTsx: true }),
     },

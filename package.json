@@ -17,6 +17,7 @@
     "test": "NODE_ENV=test vitest",
     "test:coverage": "NODE_ENV=test vitest run --coverage",
     "type-check": "tsc --noEmit",
+    "validate": "pnpm run lint && pnpm run format && pnpm run type-check && pnpm run test",
     "watch": "NODE_ENV=development nodemon -e js,mjs,ts,mts,json src/index.ts"
   },
   "dependencies": {
